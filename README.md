@@ -61,3 +61,29 @@ python get_meraki_ids.py
 pip install -r requirements.txt
 python main.py
 ```
+
+## CLI Options
+
+The application supports the following command-line arguments:
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--loop` | Run the sync process in a continuous loop. | Disabled (Run once) |
+| `--interval <seconds>` | Interval between sync runs when in loop mode. | 86400 (24 hours) |
+
+### Examples
+
+**Run once (default):**
+```bash
+python main.py
+```
+
+**Run continuously every hour:**
+```bash
+python main.py --loop --interval 3600
+```
+
+**Run with Docker (Continuous):**
+```bash
+docker run --env-file .env wlc-meraki-syncer --loop
+```

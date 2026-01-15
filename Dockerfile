@@ -14,4 +14,4 @@ COPY . .
 # Environment variables should be passed at runtime, but we can set defaults
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "main.py"]
+ENTRYPOINT ["python", "main.py"]
