@@ -14,7 +14,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("WLC-Meraki-Syncer")
 
-def main():
+import argparse
+import time
+
+def run_sync():
     logger.info("Starting WLC to Meraki Syncer...")
     if settings.dry_run:
         logger.warning("DRY RUN MODE ENABLED - No changes will be made to Meraki.")
@@ -38,7 +41,9 @@ def main():
         
     except Exception as e:
         logger.fatal(f"Failed to get data from WLC: {e}")
-        sys.exit(1)
+        # If running in loop, we might not want to exit the whole process, but for now strict failure is safer?
+        # Re-raising to be caught by main loop if needed
+        raise e
 
     # 2. Fetch Meraki Inventory
     try:
@@ -52,7 +57,7 @@ def main():
     
     except Exception as e:
         logger.fatal(f"Failed to get data from Meraki: {e}")
-        sys.exit(1)
+        raise e
 
     # 3. Calculate Deltas
     to_claim_to_org = []
@@ -62,10 +67,12 @@ def main():
         serial = ap['meraki_serial']
         name = ap['name']
         model = ap['model']
+        ap_serial = ap['serial']
+        eth_mac = ap['eth_mac']
         
         # Check if exists in Org
         if serial not in inventory:
-            logger.info(f"AP {name} ({model}, {serial}) is MISSING from Meraki Org. Queuing for claim.")
+            logger.info(f"AP {name} ({model}, {serial}) [AP Serial: {ap_serial}, MAC: {eth_mac}] is MISSING from Meraki Org. Queuing for claim.")
             to_claim_to_org.append(serial)
             # If we claim it to Org, we also want to assign it to Network immediately
             to_assign_to_network.append(serial)
@@ -75,12 +82,12 @@ def main():
             current_network = device_status.get('networkId')
             
             if current_network is None:
-                logger.info(f"AP {name} ({model}, {serial}) is in Org but UNASSIGNED. Queuing for Network {settings.meraki_network_id}.")
+                logger.info(f"AP {name} ({model}, {serial}) [AP Serial: {ap_serial}, MAC: {eth_mac}] is in Org but UNASSIGNED. Queuing for Network {settings.meraki_network_id}.")
                 to_assign_to_network.append(serial)
             elif current_network != settings.meraki_network_id:
-                logger.warning(f"AP {name} ({model}, {serial}) is already assigned to DIFFERENT Network {current_network}. Skipping.")
+                logger.warning(f"AP {name} ({model}, {serial}) [AP Serial: {ap_serial}, MAC: {eth_mac}] is already assigned to DIFFERENT Network {current_network}. Skipping.")
             else:
-                logger.debug(f"AP {name} ({model}, {serial}) is already correctly assigned.")
+                logger.debug(f"AP {name} ({model}, {serial}) [AP Serial: {ap_serial}, MAC: {eth_mac}] is already correctly assigned.")
 
     # 4. Execute Actions
     if to_claim_to_org:
@@ -88,7 +95,7 @@ def main():
             meraki_conn.claim_to_org(to_claim_to_org)
         except Exception as e:
             logger.error("Stopping due to error in Claim to Org.")
-            sys.exit(1)
+            raise e
     else:
         logger.info("No new devices to claim into Organization.")
 
@@ -97,10 +104,36 @@ def main():
             meraki_conn.assign_to_network(settings.meraki_network_id, to_assign_to_network)
         except Exception as e:
             logger.error("Error during Network Assignment. See logs.")
+            # raises to be caught
+            raise e
     else:
         logger.info("No devices to assign to Network.")
 
     logger.info("Sync Job Completed.")
+
+def main():
+    parser = argparse.ArgumentParser(description="Cisco WLC to Meraki Syncer")
+    parser.add_argument('--loop', action='store_true', help="Run in a loop")
+    parser.add_argument('--interval', type=int, default=86400, help="Interval in seconds for loop (default: 86400s / 24h)")
+    
+    args = parser.parse_args()
+    
+    if args.loop:
+        logger.info(f"Running in LOOP mode. Interval: {args.interval} seconds.")
+        while True:
+            try:
+                run_sync()
+            except Exception as e:
+                logger.error(f"An error occurred during sync: {e}")
+            
+            logger.info(f"Sleeping for {args.interval} seconds...")
+            time.sleep(args.interval)
+    else:
+        # Run once
+        try:
+            run_sync()
+        except Exception as e:
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()
