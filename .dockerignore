@@ -1,0 +1,9 @@
+meraki_dashboard_workflow
+__pycache__
+*.pyc
+.git
+.gitignore
+.venv
+.env
+.vscode
+Dockerfile
