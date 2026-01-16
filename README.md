@@ -4,7 +4,7 @@ This tool synchronizes Access Points from a Cisco 9800 WLC to the Meraki Dashboa
 It is designed to check for APs connected to the WLC and ensure they are claimed in your Meraki Organization and assigned to a specific Network (e.g., for verification/licensing compliance).  This is specifically for EA customers that have both on-premise and Meraki licenses and must manage the claim process in Dashboard.
 
 ## Features
-*   **WLC Connector**: Connects via SSH (Netmiko) and parses `show ap inventory`.
+*   **WLC Connector**: Connects via SSH (Netmiko) and parses `show ap management-mode meraki capability summary`.
 *   **Meraki Connector**: Checks Organization Inventory using the Meraki Dashboard API.
 *   **Sync Logic**: 
     *   Claims new APs to the Organization.
