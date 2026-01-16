@@ -12,6 +12,29 @@ It is designed to check for APs connected to the WLC and ensure they are claimed
     *   Skips APs that are already assigned to other networks to avoid conflicts.
 *   **Dry Run**: Supports a Dry Run mode to see what would happen without making changes.
 
+## How it Works
+The application performs a synchronization cycle in the following steps:
+
+1.  **WLC Discovery**: 
+    *   Connects to the Cisco 9800 WLC via SSH.
+    *   Executes `show ap management-mode meraki capability summary`.
+    *   Parses the output to extract AP Name, Local Serial, and Meraki Serial (Qxxx-xxxx-xxxx).
+
+2.  **Meraki Inventory Check**:
+    *   Connects to the Meraki Dashboard API.
+    *   Fetches the entire Organization Inventory to see the status of all devices.
+
+3.  **Logic & Diff Calculation**:
+    *   **New APs**: If an AP found on the WLC is *not* in the Meraki Org Inventory, it is marked for **Claiming**.
+    *   **Unassigned APs**: If an AP is in the Org but *not* assigned to any network, it is marked for **Assignment** to the target network.
+    *   **Conflict Avoidance**: If an AP is already assigned to a *different* network, it is skipped to prevent accidental localized disruptions.
+
+4.  **Execution**:
+    *   **Claim**: Batch claims all new APs into the Organization.
+    *   **Assign**: Batch assigns the targeted APs into the specified Network.
+
+5.  **Loop (Optional)**: If `--loop` is enabled, the process waits for the specified interval (default 24h) and repeats.
+
 ## Prerequisites
 *   Docker
 *   Cisco 9800 WLC Credentials (SSH)
